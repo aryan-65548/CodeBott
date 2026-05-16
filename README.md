@@ -78,7 +78,7 @@ code-review-agent/
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/yourusername/code-review-agent.git
+git clone https://github.com/aryan-65548/CodeBott.git
 cd code-review-agent
 ```
 
