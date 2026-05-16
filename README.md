@@ -24,40 +24,43 @@ This agent automatically analyzes:
 
 ---
 
-## Project Structure
+# Project Structure
+
+```bash
 code-review-agent/
 │
 ├── backend/
+│   │
 │   ├── agent/
-│   │   ├── reviewer.py          # Core LLM review logic (Groq)
-│   │   ├── prompts.py           # All system/user prompts
-│   │   └── tools.py             # Agent tools
+│   │   ├── reviewer.py          
+│   │   ├── prompts.py           
+│   │   └── tools.py             
 │   │
 │   ├── github/
-│   │   ├── client.py            # GitHub API wrapper
-│   │   ├── pr_fetcher.py        # Fetch PR diffs, files, metadata
-│   │   ├── issue_fetcher.py     # Fetch issues and comments
-│   │   ├── commit_fetcher.py    # Fetch commit diffs
-│   │   └── webhook_handler.py   # Handle GitHub webhooks
+│   │   ├── client.py            
+│   │   ├── pr_fetcher.py       
+│   │   ├── issue_fetcher.py     
+│   │   ├── commit_fetcher.py    
+│   │   └── webhook_handler.py   
 │   │
 │   ├── api/
-│   │   ├── routes.py            # FastAPI routes
-│   │   └── schemas.py           # Pydantic models
+│   │   ├── routes.py            
+│   │   └── schemas.py           
 │   │
 │   ├── config/
-│   │   └── settings.py          # Env vars, config loader
+│   │   └── settings.py          
 │   │
 │   ├── utils/
-│   │   ├── diff_parser.py       # Parse git diffs
-│   │   ├── code_formatter.py    # Format code snippets
-│   │   └── logger.py            # Logging setup
+│   │   ├── diff_parser.py       
+│   │   ├── code_formatter.py    
+│   │   └── logger.py            
 │   │
-│   └── main.py                  # FastAPI entrypoint
+│   └── main.py                  
 │
 ├── frontend/
 │   └── src/
-│       ├── components/          # ReviewCard, DiffViewer, etc.
-│       └── pages/               # Home, PRReview, Dashboard
+│       ├── components/          
+│       └── pages/               
 │
 ├── tests/
 │   ├── test_reviewer.py
