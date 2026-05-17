@@ -1,6 +1,8 @@
 import json
+from unittest import result
 from groq import Groq
 from backend.config.settings import settings
+from backend.utils.code_formatter import code_formatter 
 from backend.agent.prompts import (
     SYSTEM_PROMPT,
     PR_REVIEW_PROMPT,
@@ -70,11 +72,16 @@ class CodeReviewer:
         return "\n".join(lines)
 
     def review_pr(self, pr_data: dict) -> dict:
-        """Review a pull request"""
         logger.info(f"Reviewing PR #{pr_data['number']}: {pr_data['title']}")
 
-        diffs = self._format_diffs(pr_data["files"])
-        files_summary = self._format_files_summary(pr_data["files"])
+    # use smart formatter instead of naive truncation
+        diffs, budget_summary = code_formatter.build_diff_context(pr_data["files"])
+        files_summary = code_formatter.format_files_summary(pr_data["files"])
+
+        if budget_summary["skipped"] > 0:
+            logger.warning(
+                f"PR #{pr_data['number']} — {budget_summary['skipped']} files skipped due to token budget"
+            )
 
         prompt = PR_REVIEW_PROMPT.format(
             title=pr_data["title"],
@@ -84,14 +91,14 @@ class CodeReviewer:
             body=pr_data.get("body") or "No description provided.",
             files_summary=files_summary,
             diffs=diffs,
-        )
+       )
 
         result = self._call_llm(prompt)
         result["pr_number"] = pr_data["number"]
         result["pr_title"] = pr_data["title"]
+        result["budget_summary"] = budget_summary  # attach for transparency
         logger.info(f"PR #{pr_data['number']} review complete — verdict: {result.get('verdict')} score: {result.get('score')}")
         return result
-
     def review_commit(self, commit_data: dict) -> dict:
         """Review a commit"""
         logger.info(f"Reviewing commit {commit_data['sha']}: {commit_data['message'][:50]}")
