@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Request
 from backend.api.schemas import (
     PRReviewRequest, PRReviewResponse,
     CommitReviewRequest, CommitReviewResponse,
     IssueReviewRequest, IssueReviewResponse,
     HealthResponse,
 )
+from backend.api.rate_limiter import check_rate_limit
 from backend.github.pr_fetcher import get_pr_diff
 from backend.github.commit_fetcher import get_commit_diff
 from backend.github.issue_fetcher import get_issue_detail
@@ -15,6 +16,9 @@ from backend.utils.logger import get_logger
 logger = get_logger(__name__)
 router = APIRouter()
 
+
+# ─── Health ─────────────────────────────────────────────────
+
 @router.get("/health", response_model=HealthResponse)
 def health():
     return {
@@ -23,7 +27,10 @@ def health():
         "model": settings.groq_model,
     }
 
-@router.post("/review/pr", response_model=PRReviewResponse)
+
+# ─── PR Review ───────────────────────────────────────────────
+
+@router.post("/review/pr", response_model=PRReviewResponse, dependencies=[Depends(check_rate_limit)])
 def review_pr(request: PRReviewRequest):
     logger.info(f"POST /review/pr — {request.repo} #{request.pr_number}")
     try:
@@ -40,7 +47,10 @@ def review_pr(request: PRReviewRequest):
 
     return result
 
-@router.post("/review/commit", response_model=CommitReviewResponse)
+
+# ─── Commit Review ───────────────────────────────────────────
+
+@router.post("/review/commit", response_model=CommitReviewResponse, dependencies=[Depends(check_rate_limit)])
 def review_commit(request: CommitReviewRequest):
     logger.info(f"POST /review/commit — {request.repo} {request.sha}")
     try:
@@ -57,7 +67,10 @@ def review_commit(request: CommitReviewRequest):
 
     return result
 
-@router.post("/review/issue", response_model=IssueReviewResponse)
+
+# ─── Issue Review ────────────────────────────────────────────
+
+@router.post("/review/issue", response_model=IssueReviewResponse, dependencies=[Depends(check_rate_limit)])
 def review_issue(request: IssueReviewRequest):
     logger.info(f"POST /review/issue — {request.repo} #{request.issue_number}")
     try:
@@ -73,3 +86,7 @@ def review_issue(request: IssueReviewRequest):
         raise HTTPException(status_code=500, detail=f"Review failed: {e}")
 
     return result
+
+@router.get("/test-limit", dependencies=[Depends(check_rate_limit)])
+def test_limit():
+    return {"ok": True}
