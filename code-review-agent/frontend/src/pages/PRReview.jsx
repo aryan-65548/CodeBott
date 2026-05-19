@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { reviewPR } from "../api/client";
 import ReviewCard from "../components/ReviewCard";
+import DiffViewer from "../components/DiffViewer";
 
 export default function PRReview() {
   const [repo, setRepo] = useState("tiangolo/fastapi");
   const [prNumber, setPrNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [prData, setPrData] = useState(null);
   const [error, setError] = useState(null);
 
   const handleReview = async () => {
@@ -14,8 +16,15 @@ export default function PRReview() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setPrData(null);
 
     try {
+      // fetch PR diff for DiffViewer
+      const diffRes = await fetch(
+        `http://localhost:8000/api/pr-files?repo=${repo}&pr_number=${prNumber}`
+      ).then(r => r.json()).catch(() => null);
+      setPrData(diffRes);
+
       const res = await reviewPR(repo, parseInt(prNumber));
       setResult(res.data);
     } catch (err) {
@@ -32,7 +41,6 @@ export default function PRReview() {
         Enter a GitHub repo and PR number to get an AI review.
       </p>
 
-      {/* Input Form */}
       <div className="card">
         <div className="flex gap-16" style={{ flexWrap: "wrap" }}>
           <div style={{ flex: 2, minWidth: 200 }}>
@@ -61,32 +69,24 @@ export default function PRReview() {
               disabled={loading || !repo || !prNumber}
             >
               {loading ? (
-                <>
-                  <div className="spinner" />
-                  Reviewing...
-                </>
+                <><div className="spinner" />Reviewing...</>
               ) : "Review PR"}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Error */}
       {error && (
         <div style={{
-          marginTop: 16,
-          padding: "12px 16px",
+          marginTop: 16, padding: "12px 16px",
           background: "rgba(248,81,73,0.1)",
           border: "1px solid rgba(248,81,73,0.3)",
-          borderRadius: 8,
-          color: "#f85149",
-          fontSize: 14,
+          borderRadius: 8, color: "#f85149", fontSize: 14,
         }}>
           ✗ {error}
         </div>
       )}
 
-      {/* Loading State */}
       {loading && (
         <div className="card" style={{ marginTop: 24, textAlign: "center", padding: 48 }}>
           <div className="spinner" style={{ margin: "0 auto 16px", width: 32, height: 32 }} />
@@ -95,8 +95,8 @@ export default function PRReview() {
         </div>
       )}
 
-      {/* Result */}
       {result && <ReviewCard data={result} />}
+      {result && prData?.files && <DiffViewer files={prData.files} />}
     </div>
   );
 }

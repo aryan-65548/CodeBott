@@ -12,6 +12,24 @@ export default function Home() {
       .catch(() => setStatus({ status: "offline" }));
   }, []);
 
+  const cards = [
+    {
+      title: "PR Review",
+      desc: "Review pull request diffs for bugs, security issues, and best practices.",
+      route: "/review/pr", label: "Review a PR",
+    },
+    {
+      title: "Commit Review",
+      desc: "Analyze individual commits for quality and correctness.",
+      route: "/review/commit", label: "Review a Commit",
+    },
+    {
+      title: "Issue Analysis",
+      desc: "Analyze GitHub issues for clarity, priority, and reproduction steps.",
+      route: "/review/issue", label: "Analyze an Issue",
+    },
+  ];
+
   return (
     <div>
       <div style={{ marginBottom: 32 }}>
@@ -21,7 +39,6 @@ export default function Home() {
         </p>
       </div>
 
-      {/* Status */}
       <div className="card" style={{ marginBottom: 24 }}>
         <div className="flex items-center gap-8">
           <div style={{
@@ -35,36 +52,17 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Quick Actions */}
       <div className="flex gap-16" style={{ flexWrap: "wrap" }}>
-        <div className="card" style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ fontSize: 28, marginBottom: 12 }}></div>
-          <h3 style={{ fontWeight: 700, marginBottom: 6 }}>PR Review</h3>
-          <p className="text-muted text-sm" style={{ marginBottom: 16 }}>
-            Review pull request diffs for bugs, security issues, and best practices.
-          </p>
-          <button className="btn btn-primary" onClick={() => navigate("/review/pr")}>
-            Review a PR
-          </button>
-        </div>
-
-        <div className="card" style={{ flex: 1, minWidth: 220, opacity: 0.6 }}>
-          <div style={{ fontSize: 28, marginBottom: 12 }}></div>
-          <h3 style={{ fontWeight: 700, marginBottom: 6 }}>Commit Review</h3>
-          <p className="text-muted text-sm" style={{ marginBottom: 16 }}>
-            Analyze individual commits for quality and correctness.
-          </p>
-          <button className="btn btn-secondary" disabled>Coming soon</button>
-        </div>
-
-        <div className="card" style={{ flex: 1, minWidth: 220, opacity: 0.6 }}>
-          <div style={{ fontSize: 28, marginBottom: 12 }}></div>
-          <h3 style={{ fontWeight: 700, marginBottom: 6 }}>Issue Analysis</h3>
-          <p className="text-muted text-sm" style={{ marginBottom: 16 }}>
-            Analyze GitHub issues for clarity, priority, and reproduction steps.
-          </p>
-          <button className="btn btn-secondary" disabled>Coming soon</button>
-        </div>
+        {cards.map((card) => (
+          <div key={card.route} className="card" style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontSize: 28, marginBottom: 12 }}>{card.icon}</div>
+            <h3 style={{ fontWeight: 700, marginBottom: 6 }}>{card.title}</h3>
+            <p className="text-muted text-sm" style={{ marginBottom: 16 }}>{card.desc}</p>
+            <button className="btn btn-primary" onClick={() => navigate(card.route)}>
+              {card.label}
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -12,6 +12,9 @@ from backend.github.issue_fetcher import get_issue_detail
 from backend.agent.reviewer import reviewer
 from backend.config.settings import settings
 from backend.utils.logger import get_logger
+from backend.github.pr_fetcher import get_pr_diff, get_pull_requests
+from fastapi import Query
+
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -90,3 +93,12 @@ def review_issue(request: IssueReviewRequest):
 @router.get("/test-limit", dependencies=[Depends(check_rate_limit)])
 def test_limit():
     return {"ok": True}
+
+@router.get("/pr-files")
+def get_pr_files(repo: str = Query(...), pr_number: int = Query(...)):
+    """Fetch raw PR files for the DiffViewer"""
+    try:
+        data = get_pr_diff(repo, pr_number)
+        return {"files": data["files"]}
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
