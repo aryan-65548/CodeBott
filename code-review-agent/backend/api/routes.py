@@ -25,6 +25,9 @@ from backend.github.pr_commenter import post_pr_comment
 from backend.github.pr_fetcher import get_pr_diff
 from backend.github.commit_fetcher import get_commit_diff
 from backend.github.issue_fetcher import get_issue_detail
+from fastapi import BackgroundTasks
+from backend.api.background_tasks import run_pr_review, run_commit_review, run_issue_review
+from backend.api.job_store import create_job, update_job, get_job, get_all_jobs
 
 
 logger = get_logger(__name__)
@@ -200,3 +203,111 @@ async def github_webhook(
     else:
         logger.info(f"Unhandled webhook event type: {x_github_event}")
         return {"status": "ignored", "event": x_github_event}
+    
+@router.post("/webhook/github", status_code=202)
+async def github_webhook(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    x_hub_signature_256: str = Header(None),
+    x_github_event: str = Header(None),
+):
+    payload_bytes = await request.body()
+
+    # verify signature
+    if not verify_webhook_signature(payload_bytes, x_hub_signature_256):
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+    import json
+    try:
+        payload = json.loads(payload_bytes)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+
+    logger.info(f"Webhook received — event: {x_github_event}")
+
+    if x_github_event == "pull_request":
+        pr_info = parse_pr_event(payload)
+        if not pr_info:
+            return {"status": "ignored", "reason": "action not reviewable"}
+
+        job_id = create_job("pr_review", pr_info)
+
+        async def pr_task():
+            update_job(job_id, "running")
+            try:
+                result = await run_pr_review(
+                    pr_info["repo_full_name"],
+                    pr_info["pr_number"],
+                    post_comment=True,
+                )
+                update_job(job_id, "done", result=result)
+            except Exception as e:
+                update_job(job_id, "failed", error=str(e))
+
+        background_tasks.add_task(pr_task)
+        return {"status": "accepted", "job_id": job_id}
+
+    elif x_github_event == "push":
+        push_info = parse_push_event(payload)
+        if not push_info:
+            return {"status": "ignored", "reason": "not a main branch push"}
+
+        job_id = create_job("commit_review", push_info)
+
+        async def commit_task():
+            update_job(job_id, "running")
+            try:
+                result = await run_commit_review(
+                    push_info["repo_full_name"],
+                    push_info["sha"],
+                )
+                update_job(job_id, "done", result=result)
+            except Exception as e:
+                update_job(job_id, "failed", error=str(e))
+
+        background_tasks.add_task(commit_task)
+        return {"status": "accepted", "job_id": job_id}
+
+    elif x_github_event == "issues":
+        issue_info = parse_issue_event(payload)
+        if not issue_info:
+            return {"status": "ignored", "reason": "action not reviewable"}
+
+        job_id = create_job("issue_review", issue_info)
+
+        async def issue_task():
+            update_job(job_id, "running")
+            try:
+                result = await run_issue_review(
+                    issue_info["repo_full_name"],
+                    issue_info["issue_number"],
+                )
+                update_job(job_id, "done", result=result)
+            except Exception as e:
+                update_job(job_id, "failed", error=str(e))
+
+        background_tasks.add_task(issue_task)
+        return {"status": "accepted", "job_id": job_id}
+
+    elif x_github_event == "ping":
+        return {"status": "pong"}
+
+    else:
+        return {"status": "ignored", "event": x_github_event}
+
+
+# ─── Job Status ──────────────────────────────────────────────
+
+@router.get("/jobs")
+def list_jobs():
+    """List all background jobs"""
+    return {"jobs": get_all_jobs()}
+
+
+@router.get("/jobs/{job_id}")
+def get_job_status(job_id: str):
+    """Get status of a specific job"""
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    return job
