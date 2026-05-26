@@ -1,6 +1,6 @@
 # CodeBott
 
-A 30-day project building an AI-powered code review agent that reviews GitHub Pull Requests, Issues, and Commits using **Groq API** as the LLM backbone.
+A 30-day project building an AI-powered code review agent that reviews GitHub Pull Requests, Issues, and Commits using **Groq API** as the LLM backbone
 
 ## Project Overview
 
