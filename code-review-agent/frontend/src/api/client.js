@@ -31,3 +31,17 @@ export const reviewCommit = (repo, sha) =>
 export const reviewIssue = (repo, issueNumber) =>
   api.post("/review/issue", { repo, issue_number: issueNumber });
 export const healthCheck = () => api.get("/health");
+
+export const getHistory = (repo = null, type = null) => {
+  const params = new URLSearchParams();
+  if (repo) params.append("repo", repo);
+  if (type) params.append("type", type);
+  return api.get(`/history?${params.toString()}`);
+};
+
+export const getReviewDetail = (id) => api.get(`/history/${id}`);
+
+export const getStats = (repo = null) => {
+  const params = repo ? `?repo=${repo}` : "";
+  return api.get(`/stats${params}`);
+};
