@@ -255,3 +255,6 @@ async def get_dashboard_stats(repo: str = None):
     stats = await get_stats(repo=repo)
     return stats
 
+@router.get("/test-limit", dependencies=[Depends(check_rate_limit)])
+def test_limit():
+    return {"ok": True}

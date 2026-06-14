@@ -1,74 +1,83 @@
-import json
+import pytest
 from backend.utils.diff_parser import diff_parser
 from backend.utils.code_formatter import code_formatter
-from backend.github.pr_fetcher import get_pull_requests, get_pr_diff
 
-REPO = "tiangolo/fastapi"
-
-
-def test_parse_diff():
-    print("\n" + "="*60)
-    print("TEST: DIFF PARSER")
-    print("="*60)
-
-    prs = get_pull_requests(REPO, state="open")
-    pr_data = get_pr_diff(REPO, prs[0]["number"])
-
-    for file in pr_data["files"][:2]:
-        if file["patch"]:
-            print(f"\nFile: {file['filename']}")
-            hunks = diff_parser.parse(file["patch"])
-            print(f"Hunks found: {len(hunks)}")
-            for hunk in hunks[:1]:
-                print(f"  Header: {hunk['header']}")
-                print(f"  Additions: {hunk['additions']}")
-                print(f"  Deletions: {hunk['deletions']}")
-                print(f"  Lines: {len(hunk['lines'])}")
-
-            functions = diff_parser.extract_function_names(file["patch"])
-            print(f"Changed functions: {functions}")
-
-            risk = diff_parser.get_file_risk_score(file)
-            print(f"Risk score: {risk}")
+SAMPLE_PATCH = """@@ -1,6 +1,8 @@
+ def hello():
+-    print("hi")
++    print("hello world")
++    return True
+ 
+ def goodbye():
+-    pass
++    print("bye")
+"""
 
 
-def test_token_budget():
-    print("\n" + "="*60)
-    print("TEST: TOKEN BUDGET MANAGER")
-    print("="*60)
+def test_parse_basic_patch():
+    hunks = diff_parser.parse(SAMPLE_PATCH)
+    assert len(hunks) == 1
+    assert hunks[0]["additions"] == 3
+    assert hunks[0]["deletions"] == 2
+    print(f"\n Patch parsing passed — {len(hunks)} hunk found")
 
-    prs = get_pull_requests(REPO, state="open")
-    pr_data = get_pr_diff(REPO, prs[0]["number"])
 
-    diffs, summary = code_formatter.build_diff_context(pr_data["files"])
+def test_get_changed_lines():
+    lines = diff_parser.get_changed_lines(SAMPLE_PATCH)
+    additions = [l for l in lines if l.startswith("+")]
+    deletions = [l for l in lines if l.startswith("-")]
+    assert len(additions) == 3
+    assert len(deletions) == 2
+    print(f"\n Changed lines — {len(additions)} additions, {len(deletions)} deletions")
 
-    print(f"\nBudget Summary:")
-    print(json.dumps(summary, indent=2))
-    print(f"\nFormatted diff preview (first 500 chars):")
-    print(diffs[:500])
+
+def test_extract_function_names():
+    patch = """@@ -1,3 +1,3 @@
++def my_function():
++    pass
++class MyClass:
+"""
+    names = diff_parser.extract_function_names(patch)
+    assert "my_function" in names
+    assert "MyClass" in names
+    print(f"\n Function extraction passed — found: {names}")
 
 
 def test_auto_generated_detection():
-    print("\n" + "="*60)
-    print("TEST: AUTO-GENERATED FILE DETECTION")
-    print("="*60)
+    assert diff_parser.is_auto_generated("package-lock.json") == True
+    assert diff_parser.is_auto_generated("yarn.lock") == True
+    assert diff_parser.is_auto_generated("dist/bundle.min.js") == True
+    assert diff_parser.is_auto_generated("backend/main.py") == False
+    assert diff_parser.is_auto_generated("frontend/src/App.jsx") == False
+    print(f"\n Auto-generated detection passed")
 
-    test_files = [
-        "package-lock.json",
-        "yarn.lock",
-        "dist/bundle.min.js",
-        "backend/main.py",
-        "frontend/src/App.jsx",
-        "__pycache__/settings.cpython-311.pyc",
+
+def test_file_risk_score():
+    auth_file   = {"filename": "auth/login.py",       "additions": 10, "deletions": 5, "patch": ""}
+    test_file   = {"filename": "tests/test_login.py", "additions": 10, "deletions": 5, "patch": ""}
+    config_file = {"filename": "config/settings.py",  "additions": 5,  "deletions": 2, "patch": ""}
+
+    auth_score   = diff_parser.get_file_risk_score(auth_file)
+    test_score   = diff_parser.get_file_risk_score(test_file)
+    config_score = diff_parser.get_file_risk_score(config_file)
+
+    # auth scores highest — security sensitive filename
+    assert auth_score > test_score
+    assert auth_score > config_score
+    # all scores are positive
+    assert auth_score > 0
+    assert config_score > 0
+    print(f"\n Risk scoring — auth: {auth_score}, config: {config_score}, test: {test_score}")
+
+
+def test_token_budget():
+    files = [
+        {"filename": "main.py", "status": "modified", "additions": 10,
+         "deletions": 5, "patch": SAMPLE_PATCH},
+        {"filename": "package-lock.json", "status": "modified",
+         "additions": 100, "deletions": 50, "patch": "huge content"},
     ]
-
-    for f in test_files:
-        is_auto = diff_parser.is_auto_generated(f)
-        status = "SKIP" if is_auto else "REVIEW"
-        print(f"  [{status}] {f}")
-
-
-if __name__ == "__main__":
-    test_auto_generated_detection()
-    test_parse_diff()
-    test_token_budget()
+    diffs, summary = code_formatter.build_diff_context(files)
+    assert summary["total_files"] == 2
+    assert "package-lock.json" not in diffs
+    print(f"\n Token budget passed — {summary['included']}/{summary['total_files']} files included")
