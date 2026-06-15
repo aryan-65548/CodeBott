@@ -1,18 +1,23 @@
 import axios from "axios";
+
+// in production nginx proxies /api to backend
+// in development we hit localhost:8000 directly
+const BASE_URL = import.meta.env.PROD
+  ? "/api"
+  : "http://localhost:8000/api";
+
 const api = axios.create({
-  baseURL: "http://localhost:8000/api",
+  baseURL: BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// log every request
 api.interceptors.request.use((config) => {
   console.log(`→ ${config.method.toUpperCase()} ${config.url}`);
   return config;
 });
 
-//log every response
 api.interceptors.response.use(
   (response) => {
     console.log(`← ${response.status} ${response.config.url}`);
@@ -26,10 +31,13 @@ api.interceptors.response.use(
 
 export const reviewPR = (repo, prNumber) =>
   api.post("/review/pr", { repo, pr_number: prNumber });
+
 export const reviewCommit = (repo, sha) =>
   api.post("/review/commit", { repo, sha });
+
 export const reviewIssue = (repo, issueNumber) =>
   api.post("/review/issue", { repo, issue_number: issueNumber });
+
 export const healthCheck = () => api.get("/health");
 
 export const getHistory = (repo = null, type = null) => {
